@@ -3,95 +3,113 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB; // WAJIB: Panggil library Database
+use Illuminate\Support\Facades\DB;
 
 class SiswaController extends Controller
 {
-    // 1. TAMPILKAN DAFTAR SISWA (Limit + Filter Kelas + Search)
-    public function index(Request $request) {
-        // Ambil input dari user (Default 10 jika kosong)
+    // 1. READ (Menampilkan Data)
+    public function index(Request $request)
+    {
+        // Ambil parameter dari URL
         $limit = $request->input('limit', 10);
-        $kelas = $request->input('kelas');
+        $kelas = $request->input('id_kelas');
         $search = $request->input('search');
 
-        // Mulai Query
-        $query = DB::table('attendance_dubes_siswa')->orderBy('id_siswa', 'desc');
+        // Query awal
+        $query = DB::table('attendance_dubes_siswa')
+                    ->orderBy('id_siswa', 'desc');
 
-        // Filter Kelas
+        // Filter kelas
         if ($kelas) {
             $query->where('id_kelas', $kelas);
         }
 
-        // Filter Search
+        // Search nama / nis
         if ($search) {
-            $query->where(function($q) use ($search) {
+            $query->where(function ($q) use ($search) {
                 $q->where('nama', 'like', "%{$search}%")
                   ->orWhere('nis', 'like', "%{$search}%");
             });
         }
 
-        // Eksekusi (Pakai variable $limit)
-        $siswa = $query->paginate($limit)->withQueryString();
+        // Pagination
+        $dataSiswa = $query->paginate($limit)->withQueryString();
 
         return view('siswa.index', [
-            'dataSiswa' => $siswa,
+            'dataSiswa' => $dataSiswa,
             'kelasSelected' => $kelas,
             'search' => $search,
-            'limit' => $limit // <-- Kirim data limit ke View
+            'limit' => $limit
         ]);
     }
 
-    // 2. FORM TAMBAH (Create)
-    public function create() {
+    // 2. CREATE (Halaman Tambah)
+    public function create()
+    {
         return view('siswa.create');
     }
 
-    // 3. PROSES SIMPAN SISWA (Store)
-    public function store(Request $request) {
-        // VALIDASI: NIS harus unik di tabel 'attendance_dubes_siswa'
+    // 3. STORE (Simpan Data)
+    public function store(Request $request)
+    {
         $request->validate([
-            'nis' => 'required|unique:attendance_dubes_siswa,nis', 
+            'nis' => 'required|unique:attendance_dubes_siswa,nis',
             'nama' => 'required',
+            'id_kelas' => 'required',
+            'gender' => 'required',
         ], [
-            // Pesan Error Custom (Bahasa Indonesia)
-            'nis.unique' => 'Gagal! NIS :input sudah terdaftar di sistem.',
-            'nis.required' => 'NIS wajib diisi.',
-            'nama.required' => 'Nama wajib diisi.',
+            'nis.unique' => 'Gagal! NIS tersebut sudah terdaftar.',
         ]);
 
         DB::table('attendance_dubes_siswa')->insert([
             'nis' => $request->nis,
             'nama' => $request->nama,
-            'id_kelas' => $request->kelas,
+            'id_kelas' => $request->id_kelas,
             'gender' => $request->gender,
             'created_at' => now(),
+            'updated_at' => now()
         ]);
 
-        return redirect()->route('siswa.index')->with('success', 'Siswa berhasil ditambahkan!');
+        return redirect()->route('siswa.index')
+            ->with('success', 'Siswa berhasil ditambahkan!');
     }
 
-    // 4. FORM EDIT (Edit)
-    public function edit($id) {
-        $siswa = DB::table('attendance_dubes_siswa')->where('id_siswa', $id)->first();
-        return view('siswa.edit', ['siswa' => $siswa]);
-    }
+    // 4. EDIT (Halaman Edit)
+    public function edit($id)
+    {
+        $siswa = DB::table('attendance_dubes_siswa')
+                    ->where('id_siswa', $id)
+                    ->first();
 
-    // 5. PROSES UPDATE (Update)
-    public function update(Request $request, $id) {
-        DB::table('attendance_dubes_siswa')->where('id_siswa', $id)->update([
-            'nis' => $request->nis,
-            'nama' => $request->nama,
-            'id_kelas' => $request->kelas,
-            'gender' => $request->gender,
-            'updated_at' => now(),
+        return view('siswa.edit', [
+            'siswa' => $siswa
         ]);
-
-        return redirect()->route('siswa.index')->with('success', 'Data siswa berhasil diperbarui!');
     }
 
-    // 6. PROSES HAPUS (Destroy)
-    public function destroy($id) {
-        DB::table('attendance_dubes_siswa')->where('id_siswa', $id)->delete();
-        return redirect()->route('siswa.index')->with('success', 'Data siswa berhasil dihapus!');
+    // 5. UPDATE (Perbarui Data)
+    public function update(Request $request, $id)
+    {
+
+
+        DB::table('attendance_dubes_siswa')  ->where('id_siswa', $id) ->update([
+                'nama' => $request->nama,
+                'id_kelas' => $request->kelas,
+                'gender' => $request->gender,
+                'updated_at' => now()
+            ]);
+
+        return redirect()->route('siswa.index')
+            ->with('success', 'Data siswa berhasil diperbarui!');
+    }
+
+    // 6. DELETE (Hapus Data)
+    public function destroy($id)
+    {
+        DB::table('attendance_dubes_siswa')
+            ->where('id_siswa', $id)
+            ->delete();
+
+        return redirect()->route('siswa.index')
+            ->with('success', 'Siswa berhasil dihapus!');
     }
 }
